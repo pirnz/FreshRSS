@@ -1,0 +1,12 @@
+{
+	"name": "Plain",
+	"author": "FreshRSS contributors",
+	"description": "Minimal light theme that follows the system color scheme. System fonts, no decoration.",
+	"version": 0.1,
+	"files": ["_frss.css", "plain.css"],
+	"theme-color": {
+		"light": "#ffffff",
+		"dark": "#1c1c1e",
+		"default": "#ffffff"
+	}
+}

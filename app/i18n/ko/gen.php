@@ -180,6 +180,19 @@ return array(
 		'new_article' => '새 글이 있습니다. 여기를 클릭하면 페이지를 다시 불러옵니다.',
 		'should_be_activated' => '자바스크립트를 사용하도록 설정해야합니다',
 		'unsafe_csp_header' => 'The CSP header in use is unsafe and FreshRSS may be vulnerable to XSS attacks. <a target="_blank" href="https://freshrss.github.io/FreshRSS/en/admins/10_ServerConfig.html#security">See documentation</a>',	// TODO
+		'offline' => array(
+			'unavailable' => 'Offline reading is unavailable in this browser. The action was not saved.',	// TODO
+			'banner' => 'You are offline. Reading changes are saved on this device and sent when you reconnect.',	// TODO
+			'queued' => 'Saved on this device. It will sync next time you are online.',	// TODO
+			'sync_paused' => 'Sync is paused until you are signed in again.',	// TODO
+			'sync_failed' => 'Sync failed. Pending changes were kept.',	// TODO
+			'account_switch' => 'Offline articles saved for another account are still on this device.',	// TODO
+			'discard_other' => 'Remove other account data',	// TODO
+			'cleared' => 'Offline articles were cleared from this device.',	// TODO
+			'empty' => 'No articles have been saved for offline reading yet.',	// TODO
+			'no_account' => 'No account cached yet.',	// TODO
+			'notice' => 'Saved articles stay readable on this device until you clear them. The server cannot check your session while you are offline.',	// TODO
+		),
 	),
 	'lang' => array(
 		'az' => 'Azərbaycanca',	// IGNORE
