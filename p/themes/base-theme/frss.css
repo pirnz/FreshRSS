@@ -2876,6 +2876,8 @@ html.slider-active {
 
 	.aside_feed .configure-feeds {
 		margin-top: 10px;
+		text-align: center;
+		font-size: small;
 	}
 
 	.aside_feed .tree-folder-items .feed .favicon {

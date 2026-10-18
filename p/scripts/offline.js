@@ -709,7 +709,18 @@
 		});
 	}
 
+	function claimOfflineClient() {
+		if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
+			return;
+		}
+		navigator.serviceWorker.controller.postMessage({ type: 'freshrss-offline-client', active: true });
+	}
+
 	function startOfflinePage() {
+		claimOfflineClient();
+		if (navigator.serviceWorker) {
+			navigator.serviceWorker.addEventListener('controllerchange', claimOfflineClient);
+		}
 		document.getElementById('offline-stream').addEventListener('click', toggleOfflineArticle);
 		document.getElementById('offline-stream').addEventListener('click', handleOfflineAction);
 		document.getElementById('offline-clear').addEventListener('click', function () {

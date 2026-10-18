@@ -6,7 +6,7 @@
  * @license GPL-2.0-or-later
  */
 
-const VERSION = '2';
+const VERSION = '3';
 
 /** Installation-specific prefix, so one origin can host several copies. */
 function cachePrefix() {
@@ -99,25 +99,26 @@ function trimAssetCache(cache) {
 
 function cacheAsset(request) {
 	return caches.open(assetCacheName()).then(function (cache) {
-		return cache.match(request).then(function (cached) {
-			if (cached) {
-				return cached;
+		return fetch(request).then(function (response) {
+			if (response.ok && response.type === 'basic') {
+				cache.put(request, response.clone()).then(function () {
+					return trimAssetCache(cache);
+				});
 			}
-			return fetch(request).then(function (response) {
-				if (response.ok && response.type === 'basic') {
-					cache.put(request, response.clone()).then(function () {
-						return trimAssetCache(cache);
-					});
+			return response;
+		}, function () {
+			// Transport failure only. Serve the last good copy.
+			// An empty 504 is treated as a loaded stylesheet and blanks the page.
+			return cache.match(request).then(function (cached) {
+				if (cached) {
+					return cached;
 				}
-				return response;
-			}, function () {
-				// Offline and not cached. A rejected respondWith is a network error the
-				// browser will not retry, so the theme sheet fails and the page stays blank.
-				return new Response('', { status: 504, statusText: 'offline' });
+				return Promise.reject(new Error('offline asset not cached'));
 			});
 		});
 	});
 }
+
 
 self.addEventListener('fetch', function (event) {
 	const request = event.request;
@@ -153,13 +154,6 @@ self.addEventListener('fetch', function (event) {
 		return;
 	}
 
-	// Shell scripts are precached by the install handler, which must see the
-	// network itself. Caching them here would store a response before its status is checked.
-	if (SHELL.some(function (path) { return url.pathname === new URL(path, self.registration.scope).pathname; })) {
-		return;
-	}
-
-	if (isCacheableAsset(url)) {
-		event.respondWith(cacheAsset(request));
-	}
+		// Asset requests are not intercepted. A worker response for the
+		// live page stylesheet blanks that page. The offline page has its own style.
 });
