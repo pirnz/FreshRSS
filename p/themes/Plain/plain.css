@@ -198,6 +198,7 @@ th {
 	background: transparent;
 	color: var(--plain-fg);
 	border: 0;
+	margin: 0.2em;
 	border-radius: 6px;
 	box-sizing: border-box;
 	line-height: 1;
@@ -211,7 +212,6 @@ th {
 	min-width: 2.25rem;
 	padding: 0 0.5rem;
 
-	padding-left: 1em;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -422,6 +422,7 @@ button.as-link[disabled] {
 }
 
 .aside {
+	padding: 0.5em;
 	background-color: var(--plain-bg-subtle);
 	border-right: 1px solid var(--plain-border);
 }
