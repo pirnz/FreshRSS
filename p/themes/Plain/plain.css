@@ -467,9 +467,6 @@ button.as-link[disabled] {
 }
 
 /*=== Feed articles */
-main#stream {
-	padding-left: 1rem;
-}
 
 .flux {
 	border-left: 3px solid transparent;
@@ -580,6 +577,7 @@ main#stream {
 
 /*=== Article navigation bar */
 #nav_entries {
+	padding-left: 1em;
 	background-color: var(--plain-bg);
 	border-top: 1px solid var(--plain-border);
 }
