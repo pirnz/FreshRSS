@@ -210,6 +210,8 @@ th {
 	height: 2.25rem;
 	min-width: 2.25rem;
 	padding: 0 0.5rem;
+
+	padding-left: 1em;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -577,7 +579,6 @@ button.as-link[disabled] {
 
 /*=== Article navigation bar */
 #nav_entries {
-	padding-left: 1em;
 	background-color: var(--plain-bg);
 	border-top: 1px solid var(--plain-border);
 }
