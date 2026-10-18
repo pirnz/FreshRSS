@@ -15,6 +15,9 @@
 	#offline-stream { max-width: 70rem; margin: 0 auto; padding: .5rem; }
 	#offline-stream .flux { background: #fff; margin: .5rem 0; padding: .5rem .75rem; border-radius: 4px; }
 	#offline-stream .flux.not_read { box-shadow: inset 3px 0 0 #06c; }
+	/* Same collapse as the normal view: body hidden until the article is .active. */
+	#offline-stream.hide_posts > .flux:not(.active) > .flux_content { display: none; }
+	#offline-stream .flux_header { cursor: pointer; }
 	#offline-empty { padding: 2rem 1rem; text-align: center; }
 	@media (prefers-color-scheme: dark) {
 		body { background: #1b1b1b; color: #ddd; }

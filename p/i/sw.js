@@ -53,6 +53,9 @@ function isArticleNavigation(url) {
 }
 
 self.addEventListener('install', function (event) {
+	// Take control before the next navigation, or the first offline reload
+	// still hits the browser error page instead of offline.html.
+	self.skipWaiting();
 	event.waitUntil(caches.open(shellCacheName()).then(function (cache) {
 		return Promise.all(SHELL.map(function (path) {
 			// A redirected response would be a login page. Refuse to cache it.
@@ -138,7 +141,14 @@ self.addEventListener('fetch', function (event) {
 		}
 		event.respondWith(fetch(request).catch(function () {
 			// Transport failure only. HTTP errors never reach this branch.
-			return caches.match('./offline.html', { cacheName: shellCacheName() });
+			// match() resolves undefined on a miss; respondWith then throws a network error.
+			return caches.match('./offline.html', { cacheName: shellCacheName() }).then(function (cached) {
+				return cached || new Response('Offline page is not cached yet.', {
+					status: 503,
+					statusText: 'offline',
+					headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+				});
+			});
 		}));
 		return;
 	}

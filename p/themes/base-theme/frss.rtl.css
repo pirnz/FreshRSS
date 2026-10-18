@@ -1678,7 +1678,8 @@ a.website:hover .favicon {
 }
 
 /*=== Feed article content */
-.hide_posts > .flux:not(.active) > .flux_content {
+.hide_posts > .flux:not(.active) > .flux_content,
+#offline-stream.hide_posts > .flux:not(.active) > .flux_content {
 	display: none;
 }
 

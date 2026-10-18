@@ -657,19 +657,29 @@
 	}
 
 	function toggleOfflineArticle(event) {
-		if (event.target.closest('a, button')) {
+		const stream = document.getElementById('offline-stream');
+		// Title is a link. A plain click expands, same as init_stream()'s mouseup handler.
+		// Modified clicks keep the browser's open-in-tab behaviour.
+		const title = event.target.closest('.item a.title');
+		if (title && stream.contains(title) && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.button === 0) {
+			event.preventDefault();
+			title.parentElement.click();
 			return;
 		}
-		const header = event.target.closest('.flux_header');
-		if (!header || !document.getElementById('offline-stream').contains(header)) {
+		// Match init_stream(): header or article body toggles, real links and buttons do not.
+		if (event.target.closest('a, button, .reader, .content, .item.website, .item.link, .dropdown, footer')) {
 			return;
 		}
-		const flux = header.closest('.flux');
+		const hit = event.target.closest('.flux_header, .flux_content');
+		if (!hit || !stream.contains(hit)) {
+			return;
+		}
+		const flux = hit.closest('.flux');
 		if (!flux) {
 			return;
 		}
 		const open = flux.classList.contains('active');
-		document.getElementById('offline-stream').querySelectorAll('.flux.active').forEach(function (other) {
+		stream.querySelectorAll('.flux.active').forEach(function (other) {
 			other.classList.remove('active', 'current');
 		});
 		if (!open) {
