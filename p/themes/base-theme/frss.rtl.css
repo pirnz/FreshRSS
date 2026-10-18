@@ -39,8 +39,8 @@
 	--frss-scrollbar-track: #0001;
 	--frss-scrollbar-track-hover: #0001;
 
-	--frss-padding-flux-items: 0.75rem;
-	--frss-padding-top-bottom: 0.5rem;
+	--frss-padding-flux-items: 0.3em;
+	--frss-padding-top-bottom: 0.3em;
 
 	--width-aside: 300px;
 
@@ -933,8 +933,9 @@ input[type="checkbox"]:focus-visible {
 
 /*=== Offline reading */
 .freshrss-offline-banner {
+	box-sizing: border-box;
 	margin: 0;
-	padding: .5rem 1rem;
+	padding: .35rem 1rem;
 	background: var(--frss-font-color-dark);
 	display: flex;
 	color: var(--frss-font-color-light);
@@ -949,9 +950,13 @@ input[type="checkbox"]:focus-visible {
 
 .freshrss-offline-banner-text {
 	flex: 1 1 auto;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }
 
 .freshrss-offline-banner button {
+	flex: 0 0 auto;
 	padding: .15rem .6rem;
 	background: transparent;
 	color: inherit;
@@ -1368,11 +1373,15 @@ input[type="search"] {
 }
 
 /*=== Body */
+/* The offline banner is injected above .header, outside this fixed pair.
+   Its height is measured in offline.js; without it #global stays viewport-tall
+   and the articles fall below the fold. */
+
 #global {
 	background: inherit;
 	display: table;
 	width: 100%;
-	height: calc(100vh - (calc(2.5rem + 2 * var(--frss-padding-top-bottom) + 1px)));
+	height: calc(100vh - (calc(2.5rem + 2 * var(--frss-padding-top-bottom) + 1px)) - var(--frss-offline-banner-height, 0px));
 	table-layout: fixed;
 }
 
@@ -2874,6 +2883,8 @@ html.slider-active {
 
 	.aside_feed .configure-feeds {
 		margin-top: 10px;
+		text-align: center;
+		font-size: small;
 	}
 
 	.aside_feed .tree-folder-items .feed .favicon {

@@ -386,7 +386,7 @@ th {
 
 /*=== Body */
 #global {
-	height: calc(100% - 85px);
+	height: calc(100% - 85px - var(--frss-offline-banner-height, 0px));
 }
 
 .aside {

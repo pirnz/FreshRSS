@@ -57,7 +57,7 @@
 
 /*=== Body */
 #global {
-	height: calc(100vh - (calc(2.1rem + 2 * var(--frss-padding-top-bottom))))
+	height: calc(100vh - (calc(2.1rem + 2 * var(--frss-padding-top-bottom))) - var(--frss-offline-banner-height, 0px));
 }
 
 /*=== Aside main page (categories) */

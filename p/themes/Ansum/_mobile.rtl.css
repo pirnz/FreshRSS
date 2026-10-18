@@ -45,7 +45,7 @@
 	}
 
 	#global {
-		height: calc(100% - 8rem);
+		height: calc(100% - 8rem - var(--frss-offline-banner-height, 0px));
 	}
 
 	#panel {

@@ -76,6 +76,7 @@
 		dismiss.textContent = '×';
 		dismiss.addEventListener('click', function () {
 			bar.hidden = true;
+			fitBanner(bar);
 		});
 		bar.appendChild(text);
 		bar.appendChild(dismiss);
@@ -83,10 +84,29 @@
 		return bar;
 	}
 
+	/** #global is viewport-tall minus the header. Tell it how tall this banner is.
+	 *  Set on both roots: some themes give html its own height, which blocks inheritance. */
+	function fitBanner(bar) {
+		const roots = [document.documentElement, document.body].filter(Boolean);
+		if (!bar || bar.hidden) {
+			roots.forEach(function (node) { node.style.removeProperty('--frss-offline-banner-height'); });
+			return;
+		}
+		const height = bar.offsetHeight + 'px';
+		roots.forEach(function (node) { node.style.setProperty('--frss-offline-banner-height', height); });
+	}
+
 	function showBanner(message) {
 		const bar = banner();
 		bar.querySelector('.freshrss-offline-banner-text').textContent = message;
 		bar.hidden = false;
+		fitBanner(bar);
+	}
+
+	function watchBannerSize() {
+		window.addEventListener('resize', function () {
+			fitBanner(document.getElementById('freshrss-offline-banner'));
+		});
 	}
 
 	function setStatus(message) {
@@ -329,9 +349,10 @@
 		discard.addEventListener('click', function () {
 			const name = partitionName(previous);
 			const request = indexedDB.deleteDatabase(name);
-			request.onsuccess = function () { bar.hidden = true; };
+			request.onsuccess = function () { bar.hidden = true; fitBanner(bar); };
 		});
 		bar.appendChild(discard);
+		fitBanner(bar);
 	}
 
 	function activate(username) {
@@ -597,6 +618,7 @@
 			return;
 		}
 		registerWorker();
+		watchBannerSize();
 		activate(ctx.username).then(function () {
 			watchOnline();
 			watchAccountChanges();
