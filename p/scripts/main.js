@@ -221,11 +221,100 @@ function removeArticle(div) {
 const pending_entries = {};
 let mark_read_queue = [];
 
+function apply_read_state(div, asRead) {
+	const myIcons = context.icons;
+	let inc = 0;
+	if (asRead) {
+		div.classList.remove('not_read');
+		div.querySelectorAll('a.read').forEach(function (a) {
+			a.href = a.href.replace('&is_read=0', '') + '&is_read=1';
+		});
+		div.querySelectorAll('a.read > .icon').forEach(function (img) { img.outerHTML = myIcons.read; });
+		inc--;
+		if (context.auto_remove_article) {
+			removeArticle(div);
+		}
+	} else {
+		div.classList.add('not_read');
+		div.classList.add('keep_unread');	// Split for IE11
+		div.querySelectorAll('a.read').forEach(function (a) {
+			a.href = a.href.replace('&is_read=1', '');
+		});
+		div.querySelectorAll('a.read > .icon').forEach(function (img) { img.outerHTML = myIcons.unread; });
+		inc++;
+	}
+	const feed_link = div.querySelector('.website > a, a.website');
+	if (feed_link) {
+		const feed_url = feed_link.href;
+		const feed_id = feed_url.substr(feed_url.lastIndexOf('f_'));
+		incUnreadsFeed(div, feed_id, inc);
+	}
+	document.dispatchEvent(new CustomEvent('freshrss:entryStateChange', {
+		detail: {
+			id: div.id.replace(/^flux_/, ''),
+			isRead: asRead,
+		},
+	}));
+}
+
+function restore_read_icons(div) {
+	div.querySelectorAll('a.read > .icon').forEach(icon => {
+		icon.outerHTML = div.classList.contains('not_read') ? context.icons.unread : context.icons.read;
+	});
+}
+
+// Resolves true only after the absolute target is durable in IndexedDB.
+function offline_queue(action, entryId, target) {
+	const bridge = window.FreshRSS_Offline;
+	if (!bridge || typeof bridge.queue !== 'function') {
+		return Promise.resolve(false);
+	}
+	return bridge.queue(action, entryId, target);
+}
+
+function offline_queue_all(queue, action, target) {
+	return Promise.all(queue.map(function (id) {
+		return offline_queue(action, id, target);
+	})).then(function (results) {
+		return results.every(Boolean);
+	});
+}
+
+function finish_offline_reads(queue, asRead, callback) {
+	queue.forEach(function (id) {
+		const div = document.getElementById('flux_' + id);
+		if (div) {
+			apply_read_state(div, asRead);
+		}
+		delete pending_entries['flux_' + id];
+	});
+	faviconNbUnread();
+	toggle_bigMarkAsRead_button();
+	if (callback) {
+		callback();
+	}
+}
+
 async function send_mark_read_queue(queue, asRead, callback) {
 	if (!queue || queue.length === 0) {
 		if (callback) {
 			callback();
 		}
+		return;
+	}
+	if (navigator.onLine === false) {
+		const saved = await offline_queue_all(queue, 'read', asRead);
+		if (!saved) {
+			queue.forEach(function (id) {
+				const div = document.getElementById('flux_' + id);
+				if (div) {
+					restore_read_icons(div);
+				}
+				delete pending_entries['flux_' + id];
+			});
+			return;
+		}
+		finish_offline_reads(queue, asRead, callback);
 		return;
 	}
 	let json;
@@ -243,11 +332,12 @@ async function send_mark_read_queue(queue, asRead, callback) {
 			keepalive: true
 		});
 		if (!resp.ok) {
+			// A server rejection is never queued, and an already pending outbox is left untouched.
 			for (let i = queue.length - 1; i >= 0; i--) {
 				const div = document.getElementById('flux_' + queue[i]);
-				div.querySelectorAll('a.read > .icon').forEach(icon => {
-					icon.outerHTML = div.classList.contains('not_read') ? context.icons.unread : context.icons.read;
-				});
+				if (div) {
+					restore_read_icons(div);
+				}
 				delete pending_entries['flux_' + queue[i]];
 			}
 			badAjax(resp.status == 403);
@@ -256,46 +346,28 @@ async function send_mark_read_queue(queue, asRead, callback) {
 		json = await resp.json();
 	} catch (e) {
 		console.error(e.message);
-		badAjax();
+		// Transport failure, not a server rejection. Keep it only once it is durable.
+		const saved = await offline_queue_all(queue, 'read', asRead);
+		if (!saved) {
+			queue.forEach(function (id) {
+				const div = document.getElementById('flux_' + id);
+				if (div) {
+					restore_read_icons(div);
+				}
+				delete pending_entries['flux_' + id];
+			});
+			badAjax();
+			return;
+		}
+		finish_offline_reads(queue, asRead, callback);
 		return;
 	}
 	for (let i = queue.length - 1; i >= 0; i--) {
 		const div = document.getElementById('flux_' + queue[i]);
-		const myIcons = context.icons;
-		let inc = 0;
-		if (div.classList.contains('not_read')) {
-			div.classList.remove('not_read');
-			div.querySelectorAll('a.read').forEach(function (a) {
-				a.href = a.href.replace('&is_read=0', '') + '&is_read=1';
-			});
-			div.querySelectorAll('a.read > .icon').forEach(function (img) { img.outerHTML = myIcons.read; });
-			inc--;
-			if (context.auto_remove_article) {
-				removeArticle(div);
-			}
-		} else {
-			div.classList.add('not_read');
-			div.classList.add('keep_unread');	// Split for IE11
-			div.querySelectorAll('a.read').forEach(function (a) {
-				a.href = a.href.replace('&is_read=1', '');
-			});
-			div.querySelectorAll('a.read > .icon').forEach(function (img) { img.outerHTML = myIcons.unread; });
-			inc++;
-		}
-		const feed_link = div.querySelector('.website > a, a.website');
-		if (feed_link) {
-			const feed_url = feed_link.href;
-			const feed_id = feed_url.substr(feed_url.lastIndexOf('f_'));
-			incUnreadsFeed(div, feed_id, inc);
+		if (div) {
+			apply_read_state(div, asRead);
 		}
 		delete pending_entries['flux_' + queue[i]];
-		// Let extensions know an entry finished being marked as read/unread
-		document.dispatchEvent(new CustomEvent('freshrss:entryStateChange', {
-			detail: {
-				id: queue[i],
-				isRead: !div.classList.contains('not_read'),
-			},
-		}));
 	}
 	faviconNbUnread();
 	if (json.tags) {
@@ -390,16 +462,77 @@ function mark_favorite(div) {
 		icon.classList.add('spinner');
 	});
 
+	function restore_favorite_icon() {
+		div.querySelectorAll('a.bookmark > .icon').forEach(icon => {
+			icon.src = originalIcon.src;
+			icon.alt = originalIcon.alt;
+			icon.classList.remove('spinner');
+		});
+		delete pending_entries[div.id];
+	}
+
+	// Absent is_favorite means the link marks it favourite; is_favorite=0 unmarks it.
+	const targetFavorite = !/[?&]is_favorite=0(?:&|$)/.test(a.getAttribute('href') || url);
+	const entryId = div.id.replace(/^flux_/, '');
+
+	function apply_favorite_state() {
+		let inc = 0;
+		if (targetFavorite) {
+			div.classList.add('favorite');
+			inc++;
+		} else {
+			div.classList.remove('favorite');
+			inc--;
+		}
+		const next = targetFavorite ? '0' : '1';
+		div.querySelectorAll('a.bookmark').forEach(function (link) {
+			link.href = link.href.replace(/([?&])is_favorite=\d/, '$1is_favorite=' + next);
+			if (!/[?&]is_favorite=/.test(link.href)) {
+				link.href += (link.href.indexOf('?') < 0 ? '?' : '&') + 'is_favorite=' + next;
+			}
+		});
+		const favourites = document.querySelector('#aside_feed .favorites .title');
+		if (favourites) {
+			favourites.textContent = favourites.textContent.replace(/((?: \([\s0-9]+\))?\s*)$/, function (m, p1) {
+				return incLabel(p1, inc, false);
+			});
+			if (div.classList.contains('not_read')) {
+				const feed_unreads = str2int(favourites.getAttribute('data-unread'));
+				favourites.setAttribute('data-unread', numberFormat(feed_unreads + inc));
+			}
+		}
+		delete pending_entries[div.id];
+	}
+
+	if (navigator.onLine === false) {
+		offline_queue('favorite', entryId, targetFavorite).then(function (saved) {
+			if (!saved) {
+				restore_favorite_icon();
+				return;
+			}
+			apply_favorite_state();
+		});
+		return;
+	}
+
 	const req = new XMLHttpRequest();
 	req.open('POST', url, true);
 	req.responseType = 'json';
 	req.onerror = function (e) {
-		div.querySelectorAll('a.bookmark > .icon').forEach(icon => {
-			icon.src = originalIcon.src;
-			icon.alt = originalIcon.alt;
+		// status 0 is a transport failure. A real 403 must not be queued.
+		if (this.status !== 0) {
+			restore_favorite_icon();
+			badAjax(this.status == 403);
+			return;
+		}
+		offline_queue('favorite', entryId, targetFavorite).then(function (saved) {
+			if (!saved) {
+				restore_favorite_icon();
+				badAjax();
+				return;
+			}
+			apply_favorite_state();
 		});
-		delete pending_entries[div.id];
-		badAjax(this.status == 403);
 	};
 	req.onload = function (e) {
 		if (this.status != 200) {

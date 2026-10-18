@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" />
+<title>FreshRSS — offline</title>
+<style>
+	:root { color-scheme: light dark; }
+	body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: #f4f4f4; color: #222; }
+	header.offline-bar { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; padding: .6rem 1rem; background: #333; color: #fff; }
+	header.offline-bar strong { font-size: 1rem; }
+	header.offline-bar button { background: transparent; color: inherit; border: 1px solid currentColor; border-radius: 4px; padding: .2rem .6rem; cursor: pointer; }
+	#offline-status { margin: 0; flex-basis: 100%; font-size: .85rem; opacity: .85; }
+	#offline-stream { max-width: 70rem; margin: 0 auto; padding: .5rem; }
+	#offline-stream .flux { background: #fff; margin: .5rem 0; padding: .5rem .75rem; border-radius: 4px; }
+	#offline-stream .flux.not_read { box-shadow: inset 3px 0 0 #06c; }
+	#offline-empty { padding: 2rem 1rem; text-align: center; }
+	@media (prefers-color-scheme: dark) {
+		body { background: #1b1b1b; color: #ddd; }
+		#offline-stream .flux { background: #2a2a2a; }
+	}
+</style>
+</head>
+<body data-offline-reader="1">
+<header class="offline-bar">
+	<strong id="offline-title">FreshRSS — offline</strong>
+	<span id="offline-account"></span>
+	<button type="button" id="offline-reload" hidden>Back online</button>
+	<button type="button" id="offline-clear">Clear offline data</button>
+	<p id="offline-status"></p>
+</header>
+<main id="offline-stream"></main>
+<p id="offline-empty" hidden></p>
+<script src="../scripts/offline-logic.js"></script>
+<script src="../scripts/offline.js"></script>
+</body>
+</html>

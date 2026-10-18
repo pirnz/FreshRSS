@@ -931,6 +931,35 @@ input[type="checkbox"]:focus-visible {
 	border-top-style: solid;
 }
 
+/*=== Offline reading */
+.freshrss-offline-banner {
+	margin: 0;
+	padding: .5rem 1rem;
+	background: var(--frss-font-color-dark);
+	display: flex;
+	color: var(--frss-font-color-light);
+	flex-wrap: wrap;
+	gap: .5rem 1rem;
+	align-items: center;
+}
+
+.freshrss-offline-banner[hidden] {
+	display: none;
+}
+
+.freshrss-offline-banner-text {
+	flex: 1 1 auto;
+}
+
+.freshrss-offline-banner button {
+	padding: .15rem .6rem;
+	background: transparent;
+	color: inherit;
+	border: 1px solid currentColor;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
 /*=== Alerts */
 .alert {
 	margin: 1rem auto;
