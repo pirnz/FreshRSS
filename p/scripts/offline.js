@@ -390,6 +390,17 @@
 		if (!('serviceWorker' in navigator)) {
 			return Promise.resolve();
 		}
+		// A worker registered after this page loaded does not control it until the next
+		// navigation. skipWaiting() plus clients.claim() fires controllerchange; reload
+		// once so the worker is already answering when the user later goes offline.
+		// Guarded so a later update does not reload the page out from under the user.
+		if (!navigator.serviceWorker.controller) {
+			navigator.serviceWorker.addEventListener('controllerchange', function () {
+				if (navigator.serviceWorker.controller) {
+					window.location.reload();
+				}
+			}, { once: true });
+		}
 		return navigator.serviceWorker.register('./sw.js').then(function (registration) {
 			return navigator.serviceWorker.ready.then(function () {
 				return warmTheme(registration);
@@ -617,7 +628,6 @@
 			}).catch(function () { /* metadata is optional */ });
 			return;
 		}
-		registerWorker();
 		watchBannerSize();
 		activate(ctx.username).then(function () {
 			watchOnline();
@@ -780,7 +790,21 @@
 			run();
 			return;
 		}
-		document.addEventListener('freshrss:globalContextLoaded', run, { once: true });
+		// main.js sets context and fires this event synchronously while it parses.
+		// Both scripts are async, so that event may already have fired before this
+		// script ran. A one-shot listener registered now would never run, and the
+		// worker would never be registered. Poll until context appears.
+		const started = Date.now();
+		(function wait() {
+			if (window.context) {
+				run();
+				return;
+			}
+			if (Date.now() - started > 10000) {
+				return;
+			}
+			setTimeout(wait, 50);
+		}());
 	}
 
 	function isOfflinePage() {
@@ -809,5 +833,10 @@
 		return;
 	}
 
+	// Register before context is ready. Both scripts load async, so this script can
+	// run before main.js sets window.context — and the user can go offline before it
+	// arrives. An unregistered worker cannot answer the reload, so the browser shows
+	// its own offline page instead of offline.html.
+	registerWorker();
 	whenContext(startOnline);
 }());
