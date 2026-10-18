@@ -351,11 +351,18 @@
 		document.querySelectorAll('link[rel="stylesheet"]').forEach(function (link) {
 			const href = link.getAttribute('href') || '';
 			if (href.indexOf('/themes/') >= 0 && href.indexOf('c=extension') < 0) {
-				links.push(href);
+				// Absolute, so the worker cache key matches the offline page request.
+				links.push(new URL(href, window.location.href).href);
 			}
 		});
 		const html = document.documentElement;
-		return storePut('meta', { stylesheets: links, htmlClass: html.className }, 'theme');
+		return storePut('meta', {
+			stylesheets: links,
+			htmlClass: html.className,
+			// hide_posts lives on #stream, not <html>. The theme hides every article body
+			// until the article is .active, and the offline page never sets that class.
+			hidePosts: !!document.querySelector('#stream.hide_posts'),
+		}, 'theme');
 	}
 
 	function registerWorker() {
@@ -378,7 +385,7 @@
 		return storeGet('meta', 'theme').then(function (theme) {
 			const urls = (theme && theme.stylesheets) || [];
 			return Promise.all(urls.map(function (href) {
-				return fetch(new URL(href, window.location.href)).catch(function () { return undefined; });
+				return fetch(new URL(href, window.location.href), { credentials: 'same-origin' }).catch(function () { return undefined; });
 			}));
 		});
 	}
@@ -594,7 +601,9 @@
 			watchOnline();
 			watchAccountChanges();
 			interceptLogout();
-			document.addEventListener('freshrss:load-more', function () { harvest(document.getElementById('stream')); });
+			document.addEventListener('freshrss:load-more', function (event) {
+				harvest((event.target && event.target.id === 'stream') ? event.target : document.getElementById('stream'));
+			});
 			document.addEventListener('freshrss:entryStateChange', function (event) {
 				const detail = event.detail || {};
 				const div = document.getElementById('flux_' + detail.id);
@@ -622,10 +631,14 @@
 			((theme && theme.stylesheets) || []).forEach(function (href) {
 				const link = document.createElement('link');
 				link.rel = 'stylesheet';
-				link.href = href;
+				link.href = new URL(href, window.location.href).href;
 				document.head.appendChild(link);
 			});
 			stream.textContent = '';
+			// Theme hides .flux_content unless the article is .active, and only inside .hide_posts.
+			if (theme && theme.hidePosts) {
+				stream.classList.add('hide_posts');
+			}
 			entries.forEach(function (entry) {
 				const wrap = document.createElement('div');
 				wrap.innerHTML = entry.html;
@@ -635,6 +648,9 @@
 				}
 				applySnapshot(flux, 'read', entry.is_read);
 				applySnapshot(flux, 'favorite', entry.is_favorite);
+				if (!stream.classList.contains('hide_posts')) {
+					flux.classList.add('active');
+				}
 				stream.appendChild(flux);
 			});
 			if (empty) {

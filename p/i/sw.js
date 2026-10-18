@@ -6,7 +6,7 @@
  * @license GPL-2.0-or-later
  */
 
-const VERSION = '1';
+const VERSION = '2';
 
 /** Installation-specific prefix, so one origin can host several copies. */
 function cachePrefix() {
@@ -107,6 +107,10 @@ function cacheAsset(request) {
 					});
 				}
 				return response;
+			}, function () {
+				// Offline and not cached. A rejected respondWith is a network error the
+				// browser will not retry, so the theme sheet fails and the page stays blank.
+				return new Response('', { status: 504, statusText: 'offline' });
 			});
 		});
 	});
