@@ -249,18 +249,18 @@ th {
 }
 
 .btn-important {
-	background: var(--plain-bg-inverse);
+	background: var(--plain-accent);
 	color: var(--plain-fg-inverse);
-	border-color: var(--plain-bg-inverse);
+	border-color: var(--plain-accent);
 	font-weight: 600;
 	padding: 0 0.85rem;
 }
 
 .btn-important:hover,
 .btn-important:active {
-	background: var(--plain-accent);
+	background: var(--plain-accent-hover);
 	color: var(--plain-fg-inverse);
-	border-color: var(--plain-accent);
+	border-color: var(--plain-accent-hover);
 }
 
 .btn-attention {
@@ -467,6 +467,10 @@ button.as-link[disabled] {
 }
 
 /*=== Feed articles */
+main#stream {
+	padding-left: 1rem;
+}
+
 .flux {
 	border-left: 3px solid transparent;
 }
@@ -480,7 +484,7 @@ button.as-link[disabled] {
 }
 
 .flux.current {
-	background-color: var(--plain-accent-soft);
+	background-color: var(--plain-bg);
 	border-left-color: var(--plain-accent);
 }
 

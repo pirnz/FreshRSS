@@ -635,10 +635,9 @@
 				document.head.appendChild(link);
 			});
 			stream.textContent = '';
-			// Theme hides .flux_content unless the article is .active, and only inside .hide_posts.
-			if (theme && theme.hidePosts) {
-				stream.classList.add('hide_posts');
-			}
+			// Always start collapsed. The theme only hides the body inside .hide_posts,
+			// and only while the article is not .active.
+			stream.classList.add('hide_posts');
 			entries.forEach(function (entry) {
 				const wrap = document.createElement('div');
 				wrap.innerHTML = entry.html;
@@ -648,9 +647,6 @@
 				}
 				applySnapshot(flux, 'read', entry.is_read);
 				applySnapshot(flux, 'favorite', entry.is_favorite);
-				if (!stream.classList.contains('hide_posts')) {
-					flux.classList.add('active');
-				}
 				stream.appendChild(flux);
 			});
 			if (empty) {
@@ -658,6 +654,27 @@
 				empty.textContent = t('offline_empty', 'No articles have been saved for offline reading yet.');
 			}
 		});
+	}
+
+	function toggleOfflineArticle(event) {
+		if (event.target.closest('a, button')) {
+			return;
+		}
+		const header = event.target.closest('.flux_header');
+		if (!header || !document.getElementById('offline-stream').contains(header)) {
+			return;
+		}
+		const flux = header.closest('.flux');
+		if (!flux) {
+			return;
+		}
+		const open = flux.classList.contains('active');
+		document.getElementById('offline-stream').querySelectorAll('.flux.active').forEach(function (other) {
+			other.classList.remove('active', 'current');
+		});
+		if (!open) {
+			flux.classList.add('active', 'current');
+		}
 	}
 
 	function handleOfflineAction(event) {
@@ -683,6 +700,7 @@
 	}
 
 	function startOfflinePage() {
+		document.getElementById('offline-stream').addEventListener('click', toggleOfflineArticle);
 		document.getElementById('offline-stream').addEventListener('click', handleOfflineAction);
 		document.getElementById('offline-clear').addEventListener('click', function () {
 			clearPartition().then(function () {
