@@ -139,6 +139,10 @@ class FreshRSS extends Minz_FrontController {
 			FreshRSS_View::prependScript(Minz_Url::display('/scripts/extra.js?' . @filemtime(PUBLIC_PATH . '/scripts/extra.js')));
 		}
 		FreshRSS_View::prependScript(Minz_Url::display('/scripts/main.js?' . @filemtime(PUBLIC_PATH . '/scripts/main.js')));
+		// prependScript inserts at the front, so the last call is parsed first.
+		// offline-logic.js defines the helpers offline.js uses, so it must be last here.
+		FreshRSS_View::prependScript(Minz_Url::display('/scripts/offline-logic.js?' . @filemtime(PUBLIC_PATH . '/scripts/offline-logic.js')));
+		FreshRSS_View::prependScript(Minz_Url::display('/scripts/offline.js?' . @filemtime(PUBLIC_PATH . '/scripts/offline.js')));
 	}
 
 	public static function preLayout(): void {

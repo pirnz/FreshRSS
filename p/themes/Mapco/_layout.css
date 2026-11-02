@@ -91,7 +91,7 @@
 
 /*=== Body */
 #global {
-	height: calc(100vh - (calc(3rem + 2 * var(--frss-padding-top-bottom))));
+	height: calc(100vh - (calc(3rem + 2 * var(--frss-padding-top-bottom))) - var(--frss-offline-banner-height, 0px));
 }
 
 /*=== Prompt (centered) */

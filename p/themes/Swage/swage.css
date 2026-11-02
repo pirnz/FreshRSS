@@ -906,7 +906,7 @@ main.post .drop-section li.item.feed a:hover .icon {
 }
 
 #global {
-	height: 100vh;
+	height: calc(100vh - var(--frss-offline-banner-height, 0px));
 }
 
 #new-article {

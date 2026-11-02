@@ -182,6 +182,19 @@ return array(
 		'new_article' => '有新文章可用，點擊以刷新頁面。',
 		'should_be_activated' => '必須啟用 JavaScript',
 		'unsafe_csp_header' => '目前使用的 CSP 標頭不安全，FreshRSS 可能會受到 XSS 攻擊。<a target="_blank" href="https://freshrss.github.io/FreshRSS/en/admins/10_ServerConfig.html#security">請參閱說明文件</a>',
+		'offline' => array(
+			'unavailable' => 'Offline reading is unavailable in this browser. The action was not saved.',	// TODO
+			'banner' => 'You are offline. Reading changes are saved on this device and sent when you reconnect.',	// TODO
+			'queued' => 'Saved on this device. It will sync next time you are online.',	// TODO
+			'sync_paused' => 'Sync is paused until you are signed in again.',	// TODO
+			'sync_failed' => 'Sync failed. Pending changes were kept.',	// TODO
+			'account_switch' => 'Offline articles saved for another account are still on this device.',	// TODO
+			'discard_other' => 'Remove other account data',	// TODO
+			'cleared' => 'Offline articles were cleared from this device.',	// TODO
+			'empty' => 'No articles have been saved for offline reading yet.',	// TODO
+			'no_account' => 'No account cached yet.',	// TODO
+			'notice' => 'Saved articles stay readable on this device until you clear them. The server cannot check your session while you are offline.',	// TODO
+		),
 	),
 	'lang' => array(
 		'az' => 'Azərbaycanca',	// IGNORE

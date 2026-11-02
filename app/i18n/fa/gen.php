@@ -188,6 +188,19 @@ return array(
 		'new_article' => 'مقالات جدیدی موجود است',
 		'should_be_activated' => ' جاوا اسکریپت باید فعال باشد',
 		'unsafe_csp_header' => 'سرآیند CSP فعلی امن نیست و FreshRSS ممکن است در برابر حملات XSS آسیب‌پذیر باشد. <a target="_blank" href="https://freshrss.github.io/FreshRSS/en/admins/10_ServerConfig.html#security">مستندات را ببینید</a>',
+		'offline' => array(
+			'unavailable' => 'Offline reading is unavailable in this browser. The action was not saved.',	// TODO
+			'banner' => 'You are offline. Reading changes are saved on this device and sent when you reconnect.',	// TODO
+			'queued' => 'Saved on this device. It will sync next time you are online.',	// TODO
+			'sync_paused' => 'Sync is paused until you are signed in again.',	// TODO
+			'sync_failed' => 'Sync failed. Pending changes were kept.',	// TODO
+			'account_switch' => 'Offline articles saved for another account are still on this device.',	// TODO
+			'discard_other' => 'Remove other account data',	// TODO
+			'cleared' => 'Offline articles were cleared from this device.',	// TODO
+			'empty' => 'No articles have been saved for offline reading yet.',	// TODO
+			'no_account' => 'No account cached yet.',	// TODO
+			'notice' => 'Saved articles stay readable on this device until you clear them. The server cannot check your session while you are offline.',	// TODO
+		),
 	),
 	'lang' => array(
 		'az' => 'Azərbaycanca',	// IGNORE
