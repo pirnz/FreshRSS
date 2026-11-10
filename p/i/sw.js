@@ -6,7 +6,7 @@
  * @license GPL-2.0-or-later
  */
 
-const VERSION = '3';
+const VERSION = '4';
 
 /** Installation-specific prefix, so one origin can host several copies. */
 function cachePrefix() {
@@ -21,14 +21,25 @@ function assetCacheName() {
 	return cachePrefix() + 'assets-v' + VERSION;
 }
 
-const SHELL = ['./offline.html', '../scripts/offline.js', '../scripts/offline-logic.js'];
-const ASSET_LIMIT = 60;
+const SHELL = [
+	'./offline.html',
+	'../scripts/offline.js',
+	'../scripts/offline-logic.js',
+	'../themes/icons/read.svg',
+	'../themes/icons/unread.svg',
+	'../themes/icons/starred.svg',
+	'../themes/icons/non-starred.svg',
+];
+const ASSET_LIMIT = 80;
 
 function isSameOrigin(url) {
 	return url.origin === self.location.origin;
 }
 
-/** Public theme and script assets only. Exact URL, query string included. */
+/**
+ * Public assets the offline page can request. Exact URL, query string included.
+ * f.php only serves a favicon for a hex hash; nothing else under that script is cached.
+ */
 function isCacheableAsset(url) {
 	if (!isSameOrigin(url)) {
 		return false;
@@ -36,8 +47,12 @@ function isCacheableAsset(url) {
 	const scopeDir = new URL('./', self.registration.scope);
 	const scriptsDir = new URL('../scripts/', scopeDir);
 	const themesDir = new URL('../themes/', scopeDir);
+	const faviconScript = new URL('../f.php', scopeDir);
 	const path = url.pathname;
-	return path.startsWith(scriptsDir.pathname) || path.startsWith(themesDir.pathname);
+	if (path.startsWith(scriptsDir.pathname) || path.startsWith(themesDir.pathname)) {
+		return true;
+	}
+	return path === faviconScript.pathname && /^[0-9a-f]+$/i.test(url.searchParams.get('h') || '');
 }
 
 function isArticleNavigation(url) {
@@ -97,28 +112,44 @@ function trimAssetCache(cache) {
 	});
 }
 
+/**
+ * Cache first, so a cached icon never waits on a dead connection.
+ * A miss is fetched and stored only when the response is a real, non-redirected 2xx.
+ */
 function cacheAsset(request) {
 	return caches.open(assetCacheName()).then(function (cache) {
-		return fetch(request).then(function (response) {
-			if (response.ok && response.type === 'basic') {
-				cache.put(request, response.clone()).then(function () {
-					return trimAssetCache(cache);
-				});
+		return cache.match(request).then(function (cached) {
+			if (cached) {
+				return cached;
 			}
-			return response;
-		}, function () {
-			// Transport failure only. Serve the last good copy.
-			// An empty 504 is treated as a loaded stylesheet and blanks the page.
-			return cache.match(request).then(function (cached) {
-				if (cached) {
-					return cached;
+			return fetch(request, { redirect: 'manual' }).then(function (response) {
+				if (response.ok && response.type === 'basic' && !response.redirected) {
+					cache.put(request, response.clone()).then(function () {
+						return trimAssetCache(cache);
+					});
 				}
-				return Promise.reject(new Error('offline asset not cached'));
+				return response;
 			});
 		});
 	});
 }
 
+self.addEventListener('message', function (event) {
+	const data = event.data || {};
+	if (data.type !== 'freshrss-warm' || !Array.isArray(data.urls)) {
+		return;
+	}
+	const urls = data.urls.filter(function (href) {
+		try {
+			return isCacheableAsset(new URL(href));
+		} catch (e) {
+			return false;
+		}
+	}).slice(0, ASSET_LIMIT);
+	event.waitUntil(Promise.all(urls.map(function (href) {
+		return cacheAsset(new Request(href)).catch(function () { return undefined; });
+	})));
+});
 
 self.addEventListener('fetch', function (event) {
 	const request = event.request;
@@ -154,6 +185,23 @@ self.addEventListener('fetch', function (event) {
 		return;
 	}
 
-		// Asset requests are not intercepted. A worker response for the
-		// live page stylesheet blanks that page. The offline page has its own style.
+	// Only the offline page's own requests are answered from the cache.
+	// The live page stylesheet is not one of them: a worker response for it blanks that page.
+	if (isCacheableAsset(url) && event.clientId) {
+		event.respondWith(self.clients.get(event.clientId).then(function (client) {
+			if (!client || !isOfflineClient(new URL(client.url))) {
+				return fetch(request);
+			}
+			return cacheAsset(request);
+		}));
+	}
 });
+
+/**
+ * The static reader only. An authenticated page that happens to sit under /i/ is not it.
+ * @param {URL} url
+ * @returns {boolean}
+ */
+function isOfflineClient(url) {
+	return url.pathname === new URL('./offline.html', self.registration.scope).pathname;
+}

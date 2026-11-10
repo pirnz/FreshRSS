@@ -206,6 +206,14 @@
 		return node;
 	}
 
+	function textOf(node) {
+		return node ? node.textContent.replace(/\s+/g, ' ').trim() : '';
+	}
+
+	/**
+	 * Keep only what the generated offline list needs. The saved HTML is a fallback
+	 * for copies captured before these fields existed; new captures do not store it.
+	 */
 	function entryFromFlux(div) {
 		const id = div.getAttribute('data-entry') || div.id.replace(/^flux_/, '');
 		if (!/^\d+$/.test(id)) {
@@ -214,13 +222,26 @@
 		const clone = stripTransient(div.cloneNode(true));
 		const time = clone.querySelector('time[datetime]');
 		const date = time ? Date.parse(time.getAttribute('datetime')) : NaN;
+		const favicon = clone.querySelector('.flux_header img.favicon');
+		const text = clone.querySelector('.flux_content .content .text');
+		if (text) {
+			text.querySelectorAll('img, video, audio, picture, source, iframe, object, embed').forEach(function (media) {
+				media.remove();
+			});
+		}
 		return {
 			id: id,
 			feed_id: parseInt(div.getAttribute('data-feed'), 10) || 0,
 			is_read: !div.classList.contains('not_read'),
 			is_favorite: div.classList.contains('favorite'),
 			captured: Number.isNaN(date) ? Date.now() : date,
-			html: clone.outerHTML,
+			title: textOf(clone.querySelector('.flux_header a.title')) || textOf(clone.querySelector('h1.title')),
+			feed_name: (clone.querySelector('.flux_header') || clone).getAttribute('data-website-name') ||
+				textOf(clone.querySelector('.flux_header .websiteName')),
+			favicon: favicon ? favicon.getAttribute('src') : '',
+			link: div.getAttribute('data-link') || '',
+			date_label: textOf(time),
+			content: text ? text.innerHTML : '',
 		};
 	}
 
@@ -248,7 +269,7 @@
 				store.put(logic.mergePending(entry, pending['read:' + entry.id], pending['favorite:' + entry.id]));
 			});
 			return txDone(tx);
-		}).then(pruneEntries).catch(failClosed);
+		}).then(pruneEntries).then(warmIcons).catch(failClosed);
 	}
 
 	function pruneEntries() {
@@ -403,23 +424,29 @@
 		}
 		return navigator.serviceWorker.register('./sw.js').then(function (registration) {
 			return navigator.serviceWorker.ready.then(function () {
-				return warmTheme(registration);
+				return warmIcons();
 			});
 		}).catch(function (error) {
 			console.error('FreshRSS service worker registration failed', error);
 		});
 	}
 
-	function warmTheme() {
-		if (!state.ready) {
+	/** Hand the worker the favicons this account's articles use, so they survive going offline. */
+	function warmIcons() {
+		const worker = navigator.serviceWorker && navigator.serviceWorker.controller;
+		if (!worker || !state.ready) {
 			return Promise.resolve();
 		}
-		return storeGet('meta', 'theme').then(function (theme) {
-			const urls = (theme && theme.stylesheets) || [];
-			return Promise.all(urls.map(function (href) {
-				return fetch(new URL(href, window.location.href), { credentials: 'same-origin' }).catch(function () { return undefined; });
-			}));
-		});
+		return storeGetAll('entries').then(function (entries) {
+			const urls = {};
+			entries.forEach(function (entry) {
+				const src = safeFavicon(entry.favicon);
+				if (src) {
+					urls[src] = true;
+				}
+			});
+			worker.postMessage({ type: 'freshrss-warm', urls: Object.keys(urls) });
+		}).catch(function () { /* a missed warm-up only costs icons, not articles */ });
 	}
 
 	function freshContext() {
@@ -591,7 +618,7 @@
 			}
 			if (data.type === 'logout' || (data.type === 'switch' && data.username !== state.username)) {
 				const offlineStream = document.getElementById('offline-stream');
-				(offlineStream || document).querySelectorAll('.flux[data-entry]').forEach(function (div) { div.remove(); });
+				(offlineStream || document).querySelectorAll('[data-entry]').forEach(function (div) { div.remove(); });
 				setStatus(t('offline_cleared', 'Offline articles were cleared.'));
 			}
 		});
@@ -651,35 +678,156 @@
 		});
 	}
 
+	/** Same-origin favicon only. Anything else is dropped rather than requested. */
+	function safeFavicon(src) {
+		if (!src) {
+			return '';
+		}
+		let url;
+		try {
+			url = new URL(src, window.location.href);
+		} catch (e) {
+			return '';
+		}
+		if (url.origin !== window.location.origin || !url.pathname.endsWith('/f.php')) {
+			return '';
+		}
+		return /^[0-9a-f]+$/i.test(url.searchParams.get('h') || '') ? url.href : '';
+	}
+
+	function iconUrl(name) {
+		return new URL('../themes/icons/' + name + '.svg', window.location.href).href;
+	}
+
+	function makeIcon(name, alt) {
+		const img = document.createElement('img');
+		img.className = 'icon';
+		img.src = iconUrl(name);
+		img.alt = alt;
+		return img;
+	}
+
+	/** Article body captured from FreshRSS's own rendered HTML. Images are already gone. */
+	function fillContent(node, html) {
+		const doc = new DOMParser().parseFromString('<div class="text">' + (html || '') + '</div>', 'text/html');
+		const parsed = doc.querySelector('.text');
+		if (!parsed) {
+			return;
+		}
+		parsed.querySelectorAll('img, video, audio, picture, source, iframe, object, embed, script, link').forEach(function (media) {
+			media.remove();
+		});
+		node.appendChild(parsed);
+	}
+
+	/** One row, built here. Never the saved page HTML. */
+	/**
+	 * Copies saved before the field split only have the rendered article HTML.
+	 * Read the same fields out of it, and drop its images.
+	 */
+	function fieldsFromHtml(entry) {
+		if (entry.title || !entry.html) {
+			return entry;
+		}
+		const doc = new DOMParser().parseFromString(entry.html, 'text/html');
+		const flux = doc.querySelector('.flux') || doc.body;
+		const time = flux.querySelector('time[datetime]');
+		const favicon = flux.querySelector('.flux_header img.favicon');
+		const text = flux.querySelector('.flux_content .content .text');
+		if (text) {
+			text.querySelectorAll('img, video, audio, picture, source, iframe, object, embed').forEach(function (media) {
+				media.remove();
+			});
+		}
+		return Object.assign({}, entry, {
+			title: textOf(flux.querySelector('.flux_header a.title')) || textOf(flux.querySelector('h1.title')),
+			feed_name: (flux.querySelector('.flux_header') || flux).getAttribute('data-website-name') ||
+				textOf(flux.querySelector('.flux_header .websiteName')),
+			favicon: favicon ? favicon.getAttribute('src') : '',
+			date_label: textOf(time),
+			content: text ? text.innerHTML : '',
+		});
+	}
+
+	function renderEntry(entry) {
+		const article = document.createElement('article');
+		article.className = 'offline-article' + (entry.is_read ? '' : ' not_read') + (entry.is_favorite ? ' favorite' : '');
+		article.setAttribute('data-entry', String(entry.id));
+
+		const row = document.createElement('div');
+		row.className = 'offline-row';
+
+		const read = document.createElement('button');
+		read.type = 'button';
+		read.className = 'offline-icon read';
+		read.appendChild(makeIcon(entry.is_read ? 'read' : 'unread', entry.is_read ? '☑' : '□'));
+		row.appendChild(read);
+
+		const star = document.createElement('button');
+		star.type = 'button';
+		star.className = 'offline-icon bookmark';
+		star.appendChild(makeIcon(entry.is_favorite ? 'starred' : 'non-starred', entry.is_favorite ? '★' : '☆'));
+		row.appendChild(star);
+
+		const faviconSrc = safeFavicon(entry.favicon);
+		if (faviconSrc) {
+			const favicon = document.createElement('img');
+			favicon.className = 'favicon';
+			favicon.src = faviconSrc;
+			favicon.alt = '';
+			row.appendChild(favicon);
+		}
+
+		const title = document.createElement('span');
+		title.className = 'offline-title';
+		title.textContent = entry.title || '';
+		row.appendChild(title);
+
+		const body = document.createElement('div');
+		body.className = 'offline-body';
+		body.hidden = true;
+		if (entry.feed_name || entry.date_label) {
+			const meta = document.createElement('p');
+			meta.className = 'offline-meta';
+			meta.textContent = [entry.feed_name, entry.date_label].filter(Boolean).join(' · ');
+			body.appendChild(meta);
+		}
+		fillContent(body, entry.content || '');
+		if (entry.link) {
+			let href = '';
+			try {
+				const url = new URL(entry.link, window.location.href);
+				if (url.protocol === 'http:' || url.protocol === 'https:') {
+					href = url.href;
+				}
+			} catch (e) { /* a bad link is omitted, not rendered */ }
+			if (href) {
+				const source = document.createElement('a');
+				source.className = 'offline-source';
+				source.href = href;
+				source.target = '_blank';
+				source.rel = 'noreferrer';
+				source.textContent = href;
+				body.appendChild(source);
+			}
+		}
+
+		article.appendChild(row);
+		article.appendChild(body);
+		return article;
+	}
+
 	function renderOffline() {
 		const stream = document.getElementById('offline-stream');
 		const empty = document.getElementById('offline-empty');
-		return Promise.all([storeGetAll('entries'), storeGet('meta', 'theme')]).then(function (result) {
-			const entries = result[0].slice().sort(function (a, b) { return (b.captured || 0) - (a.captured || 0); });
-			const theme = result[1];
-			if (theme && theme.htmlClass) {
-				document.documentElement.className = theme.htmlClass;
-			}
-			((theme && theme.stylesheets) || []).forEach(function (href) {
-				const link = document.createElement('link');
-				link.rel = 'stylesheet';
-				link.href = new URL(href, window.location.href).href;
-				document.head.appendChild(link);
-			});
+		return storeGetAll('entries').then(function (stored) {
+			const entries = stored.slice().sort(function (a, b) { return (b.captured || 0) - (a.captured || 0); });
 			stream.textContent = '';
-			// Always start collapsed. The theme only hides the body inside .hide_posts,
-			// and only while the article is not .active.
-			stream.classList.add('hide_posts');
 			entries.forEach(function (entry) {
-				const wrap = document.createElement('div');
-				wrap.innerHTML = entry.html;
-				const flux = wrap.querySelector('.flux');
-				if (!flux) {
+				if (!entry || !/^\d+$/.test(String(entry.id))) {
 					return;
 				}
-				applySnapshot(flux, 'read', entry.is_read);
-				applySnapshot(flux, 'favorite', entry.is_favorite);
-				stream.appendChild(flux);
+				stream.appendChild(renderEntry(fieldsFromHtml(entry)));
 			});
 			if (empty) {
 				empty.hidden = entries.length > 0;
@@ -688,57 +836,75 @@
 		});
 	}
 
-	function toggleOfflineArticle(event) {
-		const stream = document.getElementById('offline-stream');
-		// Title is a link. A plain click expands, same as init_stream()'s mouseup handler.
-		// Modified clicks keep the browser's open-in-tab behaviour.
-		const title = event.target.closest('.item a.title');
-		if (title && stream.contains(title) && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.button === 0) {
-			event.preventDefault();
-			title.parentElement.click();
-			return;
-		}
-		// Match init_stream(): header or article body toggles, real links and buttons do not.
-		if (event.target.closest('a, button, .reader, .content, .item.website, .item.link, .dropdown, footer')) {
-			return;
-		}
-		const hit = event.target.closest('.flux_header, .flux_content');
-		if (!hit || !stream.contains(hit)) {
-			return;
-		}
-		const flux = hit.closest('.flux');
-		if (!flux) {
-			return;
-		}
-		const open = flux.classList.contains('active');
-		stream.querySelectorAll('.flux.active').forEach(function (other) {
-			other.classList.remove('active', 'current');
-		});
-		if (!open) {
-			flux.classList.add('active', 'current');
+	function setIcon(button, name, alt) {
+		const img = button.querySelector('img');
+		if (img) {
+			img.src = iconUrl(name);
+			img.alt = alt;
 		}
 	}
 
-	function handleOfflineAction(event) {
-		const link = event.target.closest ? event.target.closest('a.read, a.bookmark') : null;
-		if (!link || !document.getElementById('offline-stream').contains(link)) {
-			return;
-		}
-		const flux = link.closest('.flux');
-		if (!flux) {
-			return;
-		}
-		event.preventDefault();
-		const entryId = flux.getAttribute('data-entry');
-		const action = link.classList.contains('read') ? 'read' : 'favorite';
-		const target = action === 'read' ? flux.classList.contains('not_read') : !flux.classList.contains('favorite');
-		queue(action, entryId, target).then(function (ok) {
-			if (!ok) {
+	/** Row opens the article. Read and favourite buttons queue instead. */
+	function handleOfflineClick(event) {
+		const stream = document.getElementById('offline-stream');
+		const button = event.target.closest('button.read, button.bookmark');
+		if (button && stream.contains(button)) {
+			const article = button.closest('.offline-article');
+			if (!article) {
 				return;
 			}
-			applySnapshot(flux, action, target);
-			setStatus(t('offline_queued', 'Saved on this device. It will sync next time you are online.'));
+			event.preventDefault();
+			const entryId = article.getAttribute('data-entry');
+			const action = button.classList.contains('read') ? 'read' : 'favorite';
+			const target = action === 'read' ? article.classList.contains('not_read') : !article.classList.contains('favorite');
+			queue(action, entryId, target).then(function (ok) {
+				if (!ok) {
+					return;
+				}
+				applySnapshot(article, action, target);
+				if (action === 'read') {
+					setIcon(button, target ? 'read' : 'unread', target ? '☑' : '□');
+				} else {
+					setIcon(button, target ? 'starred' : 'non-starred', target ? '★' : '☆');
+				}
+				setStatus(t('offline_queued', 'Saved on this device. It will sync next time you are online.'));
+			});
+			return;
+		}
+		if (event.target.closest('a')) {
+			return;
+		}
+		const row = event.target.closest('.offline-row');
+		if (!row || !stream.contains(row)) {
+			return;
+		}
+		const article = row.parentElement;
+		const body = article.querySelector('.offline-body');
+		const open = article.classList.contains('active');
+		stream.querySelectorAll('.offline-article.active').forEach(function (other) {
+			other.classList.remove('active');
+			const otherBody = other.querySelector('.offline-body');
+			if (otherBody) {
+				otherBody.hidden = true;
+			}
 		});
+		if (!open) {
+			article.classList.add('active');
+			body.hidden = false;
+			// The normal view marks an article read when it is opened.
+			if (article.classList.contains('not_read')) {
+				const readButton = article.querySelector('button.read');
+				queue('read', article.getAttribute('data-entry'), true).then(function (ok) {
+					if (!ok) {
+						return;
+					}
+					applySnapshot(article, 'read', true);
+					if (readButton) {
+						setIcon(readButton, 'read', '☑');
+					}
+				});
+			}
+		}
 	}
 
 	function claimOfflineClient() {
@@ -753,8 +919,7 @@
 		if (navigator.serviceWorker) {
 			navigator.serviceWorker.addEventListener('controllerchange', claimOfflineClient);
 		}
-		document.getElementById('offline-stream').addEventListener('click', toggleOfflineArticle);
-		document.getElementById('offline-stream').addEventListener('click', handleOfflineAction);
+		document.getElementById('offline-stream').addEventListener('click', handleOfflineClick);
 		document.getElementById('offline-clear').addEventListener('click', function () {
 			clearPartition().then(function () {
 				broadcast('logout');

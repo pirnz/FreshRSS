@@ -3,26 +3,64 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" />
 <title>FreshRSS — offline</title>
 <style>
-	:root { color-scheme: light dark; }
-	body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: #f4f4f4; color: #222; }
-	header.offline-bar { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; padding: .6rem 1rem; background: #333; color: #fff; }
+	:root {
+		color-scheme: light dark;
+		--bg: #f0f0f0;
+		--paper: #fff;
+		--ink: #222;
+		--muted: #666;
+		--line: #e4e4e4;
+		--unread: #ff5300;
+		--unread-bg: #fff3ed;
+		--unread-hover: #faeee8;
+		--favorite: #ffc300;
+		--favorite-bg: #fff6da;
+		--bar: #333;
+		--bar-ink: #fff;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--bg: #1b1b1b;
+			--paper: #262626;
+			--ink: #ddd;
+			--muted: #999;
+			--line: #3a3a3a;
+			--unread-bg: #3a2a24;
+			--unread-hover: #463028;
+			--favorite-bg: #3a3420;
+			--bar: #111;
+		}
+	}
+	* { box-sizing: border-box; }
+	body { margin: 0; font: 15px/1.45 "OpenSans", "Cantarell", "Helvetica", "Arial", sans-serif; background: var(--bg); color: var(--ink); }
+	header.offline-bar { display: flex; flex-wrap: wrap; gap: .4rem 1rem; align-items: center; padding: .55rem 1rem; background: var(--bar); color: var(--bar-ink); }
 	header.offline-bar strong { font-size: 1rem; }
 	header.offline-bar button { background: transparent; color: inherit; border: 1px solid currentColor; border-radius: 4px; padding: .2rem .6rem; cursor: pointer; }
+	#offline-account { opacity: .8; }
 	#offline-status { margin: 0; flex-basis: 100%; font-size: .85rem; opacity: .85; }
-	#offline-stream { max-width: 70rem; margin: 0 auto; padding: .5rem; }
-	#offline-stream .flux { background: #fff; margin: .5rem 0; padding: .5rem .75rem; border-radius: 4px; }
-	#offline-stream .flux.not_read { box-shadow: inset 3px 0 0 #06c; }
-	/* Same collapse as the normal view: body hidden until the article is .active. */
-	#offline-stream.hide_posts > .flux:not(.active) > .flux_content { display: none; }
-	#offline-stream .flux_header { cursor: pointer; }
-	#offline-empty { padding: 2rem 1rem; text-align: center; }
-	@media (prefers-color-scheme: dark) {
-		body { background: #1b1b1b; color: #ddd; }
-		#offline-stream .flux { background: #2a2a2a; }
-	}
+	#offline-stream { max-width: 52rem; margin: .75rem auto; padding: 0 .75rem 2rem; }
+	.offline-article { background: var(--paper); border-left: 2px solid transparent; border-bottom: 1px solid var(--line); }
+	.offline-article.not_read { border-left-color: var(--unread); }
+	.offline-article.not_read .offline-row { background: var(--unread-bg); }
+	.offline-article.favorite { border-left-color: var(--favorite); }
+	.offline-article.favorite .offline-row { background: var(--favorite-bg); }
+	.offline-article.active { border-left-width: 5px; border-left-style: double; }
+	.offline-row { display: flex; align-items: center; gap: .4rem; min-height: 2.4rem; padding: .3rem .6rem; cursor: pointer; }
+	.offline-row:hover { background: var(--unread-hover); }
+	.offline-article.not_read .offline-title { font-weight: bold; }
+	.offline-icon { display: inline-flex; padding: 0; border: 0; background: none; cursor: pointer; }
+	.offline-icon .icon, .offline-row .favicon { width: 1rem; height: 1rem; flex: none; }
+	.offline-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.offline-body { padding: .25rem 1rem 1rem 2.6rem; }
+	.offline-body[hidden] { display: none; }
+	.offline-meta { margin: .4rem 0; color: var(--muted); font-size: .85rem; }
+	.offline-body .text { overflow-wrap: anywhere; }
+	.offline-body .text img, .offline-body .text video, .offline-body .text iframe { display: none; }
+	.offline-source { display: inline-block; margin-top: .75rem; color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
+	#offline-empty { padding: 2rem 1rem; text-align: center; color: var(--muted); }
 </style>
 </head>
 <body data-offline-reader="1">
